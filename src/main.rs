@@ -4,13 +4,40 @@ use std::process::{self, Command, Stdio};
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};
 
+static JAR: &[u8] = include_bytes!("../res/app.jar");
 const JAVA_MIN: u32 = 17;
 const OS: &str = if cfg!(windows) { "windows" } else if cfg!(target_os = "macos") { "mac" } else { "linux" };
 const ARCH: &str = if cfg!(target_arch = "x86_64") || cfg!(windows) { "x64" } else { "aarch64" }; // No temurin 17 win arm64 :(
 const JAVA_BIN: &str = if cfg!(windows) { "java.exe" } else { "java" };
 
 fn main() {
-    println!("Hello, world!");
+    let result = (|| -> Result<i32, String> {
+        let tmp = TempDir::new()?;
+        let jar = tmp.0.join("app.jar");
+
+        fs::write(&jar, JAR).map_err(|e| format!("couldn't write jar: {e}"))?;
+
+        let java = match find_java() {
+            Some(j) => j,
+            None => download_jre(&tmp.0)?
+        };
+
+        let status = Command::new(&java).arg("-jar").arg(&jar).args(env::args_os().skip(1)).status().map_err(|e| format!("failed to init java: {e}"))?;
+
+        Ok(status.code().unwrap_or(1))
+    })();
+
+    match result {
+        Ok(code) => {
+            // delete?
+            process::exit(code)
+        }
+
+        Err(e) => {
+            eprintln!("err: {e}");
+            process::exit(1);
+        }
+    }
 }
 
 struct TempDir(PathBuf);
