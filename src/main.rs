@@ -59,3 +59,14 @@ fn download_jre(tmp: &Path) -> Result<PathBuf, String> {
             .find(|path| path.is_file())
         }).ok_or_else(|| "Weird layout.".to_string())
 }
+
+fn java_ok(java: &Path) -> bool {
+    let Ok(out) = Command::new(java).arg("-version").stdin(Stdio::null()).output() else {
+        return false;
+    };
+
+    let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+
+    // got && major version number is actually the minimum or higher
+    out.status.success() && text.split_once("version \"").and_then(|(_, rest)| rest.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()).unwrap_or(0) >= JAVA_MIN
+}
