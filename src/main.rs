@@ -70,3 +70,17 @@ fn java_ok(java: &Path) -> bool {
     // got && major version number is actually the minimum or higher
     out.status.success() && text.split_once("version \"").and_then(|(_, rest)| rest.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()).unwrap_or(0) >= JAVA_MIN
 }
+
+fn find_java() -> Option<PathBuf> {
+    if let Some(home) = env::var_os("JAVA_HOME") {
+        let guess = Path::new(&home).join("bin").join(JAVA_BIN);
+
+        if guess.is_file() && java_ok(&guess) {
+            return Some(guess);
+        }
+    }
+
+    let guess = PathBuf::from("java");
+
+    java_ok(&guess).then_some(guess)
+}
