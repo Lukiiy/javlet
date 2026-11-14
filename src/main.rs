@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
-use std::fs;
-use std::process::Command;
+use std::{fs, env};
+use std::process::{self, Command, Stdio};
+use std::collections::hash_map::RandomState;
+use std::hash::{BuildHasher, Hasher};
 
 const JAVA_MIN: u32 = 17;
 const OS: &str = if cfg!(windows) { "windows" } else if cfg!(target_os = "macos") { "mac" } else { "linux" };
@@ -9,6 +11,24 @@ const JAVA_BIN: &str = if cfg!(windows) { "java.exe" } else { "java" };
 
 fn main() {
     println!("Hello, world!");
+}
+
+struct TempDir(PathBuf);
+
+impl TempDir {
+    fn new() -> Result<Self, String> {
+        let veryveryrandomgeneratedhash = RandomState::new().build_hasher().finish();
+        let temp = env::temp_dir().join(format!("javlet-{}-{veryveryrandomgeneratedhash:016x}", process::id()));
+
+        fs::create_dir_all(&temp).map_err(|e| format!("Cannot create {}: {e}", temp.display()))?;
+
+        Ok(Self(temp))
+    }
+}
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
 }
 
 fn download_jre(tmp: &Path) -> Result<PathBuf, String> {
